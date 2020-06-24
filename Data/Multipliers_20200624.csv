@@ -1,0 +1,25 @@
+﻿Economic Indicators,Path,Sector,Multiplier
+Output, Direct ,Fisheries,1
+Output, Indirect ,Fisheries,0.501
+Output, Induced,Fisheries,0.222
+GDP, Direct ,Fisheries,0.518
+GDP, Indirect ,Fisheries,0.239
+GDP, Induced,Fisheries,0.134
+LabourIncome, Direct ,Fisheries,0.154
+LabourIncome, Indirect ,Fisheries,0.138
+LabourIncome, Induced,Fisheries,0.058
+Employment, Direct ,Fisheries,4.453
+Employment, Indirect ,Fisheries,2.314
+Employment, Induced,Fisheries,1.177
+Output, Direct ,Aquaculture,1
+Output, Indirect ,Aquaculture,0.817
+Output, Induced,Aquaculture,0.227
+GDP, Direct ,Aquaculture,0.513
+GDP, Indirect ,Aquaculture,0.311
+GDP, Induced,Aquaculture,0.137
+LabourIncome, Direct ,Aquaculture,0.109
+LabourIncome, Indirect ,Aquaculture,0.171
+LabourIncome, Induced,Aquaculture,0.059
+Employment, Direct ,Aquaculture,2.028
+Employment, Indirect ,Aquaculture,3.279
+Employment, Induced,Aquaculture,1.203
