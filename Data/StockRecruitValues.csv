@@ -1,0 +1,5 @@
+Model,Productivity,Coefficient,Value,StandardError
+Ricker,Low,alpha,0.9779526,0.264783362
+Ricker,Low,xvar1,-2.41E-05,7.82E-06
+Ricker,High,alpha,1.970910747,0.498151309
+Ricker,High,xvar1,-1.40E-05,7.38E-06
