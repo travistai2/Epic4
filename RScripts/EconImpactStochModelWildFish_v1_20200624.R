@@ -1,6 +1,6 @@
 ##########
 #
-# EPIC4 Economic impact stochastic model
+# EPIC4 Economic impact stochastic model - for wild fisheries
 #
 # by Travis Tai, Annie Mejaes
 # 
@@ -25,11 +25,6 @@ ipak(pckgs)
 fishprof.dat<-read.csv("./Data/Scen6NetProfitRicker.csv",header=T,strip.white=T,stringsAsFactors=F)
 head(fishprof.dat)
 
-## aquaculture net profit data  
-aquaprof.dat<-read.csv("./Data/NetProfitAquaculture.csv",header=T,strip.white=T,stringsAsFactors=F)
-head(aquaprof.dat)
-
-
 ## multipliers data
 mult.dat<-read.csv("./Data/Multipliers_20200729.csv",header=T,strip.white=T,stringsAsFactors=F) 
 head(mult.dat)
@@ -38,6 +33,7 @@ mult.dat<-tempmult.dat %>% gather("Year","Multiplier",4:10) %>%
   group_by(Economic.Indicators,Path,Sector) %>%
   summarize(Mult_Mean = mean(Multiplier,na.rm=T),
             Mult_SD = sd(Multiplier,na.rm=T))
+write.csv(mult.dat,"./Tables/MultiplerTableMeanSD.csv",row.names = F)
   
 ## hatchery release data
 model.dat<-read.csv("./Data/SimModelValues.csv",header=T,strip.white=T,stringsAsFactors=F)
@@ -57,14 +53,16 @@ storec.dat<-read.csv("./Data/StockRecruitValues.csv",header=T,strip.white=T,stri
 
 ## simulation parameters
 set.seed(1)  ## set random seed to start at the same point (for reproducability of stochastic model)
-iter<-10000  ## number of iterations
+iter<-10000  ## number of iterations - do 10000 then sample from 10000
 
 n_years<-2014:2050
 
 
 ## model value parameters
-d_rate<-0.058  ## discount rate
-d_year<-2018  ## discount year start; Bendriem start = 2018
+d_rate<-0.08  ## discount rate: Canada = 8%
+d_year<-2020  ## discount year start; Bendriem start = 2018; we start at 2020
+
+rel_Year<-2020  ## relative year to start harvesting when survival increases
 mult.cate<-unique(mult.dat$Economic.Indicators)  ## multiplier categories
 mean_bodysize<-3.46  ## mean body size of coho kg
 exv_price<-3.02  ## ex vessel price $/kg
@@ -103,27 +101,24 @@ names(iter.ind)<-c("iter",
                    mult.cate,
                    "netpresentvalue","netprofit_annual")
 
-p1<-ggplot()  ## set up ggplot to plot stock recruit results
-p2<-ggplot()  ## set up ggplot to plot economic results
-
-
 for(i in 1:iter){  ## stochastic stock recruit component
   
   ## set stochastic stock recruit parameter
   ## run stock recruit simulation
   tout.dat<-stockRecr(init.spawn = Spawn2011to13,years = n_years,
                       sim.dat = model.dat,
-                      model="Ricker") %>% 
+                      model="Ricker",
+                      relYr = rel_Year) %>% 
     mutate(total_return = age3_ret + hatch_return,
-           harvest = ifelse(Year>=2020,exp_rate*total_return,0),
+           harvest = ifelse(Year>=rel_Year+2,exp_rate*total_return,0),
            harvest_areaG = harvest*0.9) %>%
     left_join((model.dat %>% select(Year,Catchability)),by = "Year") %>%
     mutate(effort = harvest_areaG/(Catchability*age3_ret)) %>%
     replace_na(list(Catchability=0,effort=0)) %>%
     mutate(LV = harvest_areaG * exv_price * mean_bodysize,
-           fishingcost_season = ifelse(Year>=2020,effort*costfishing_weekly+120000,0),
+           fishingcost_season = ifelse(Year>=rel_Year+2,effort*costfishing_weekly+120000,0),
            net_revenue = LV - fishingcost_season,
-           implement_cost = ifelse(Year>=2018,9200,0),
+           implement_cost = ifelse(Year>=rel_Year,9200,0),
            net_profit = net_revenue-implement_cost) 
   
   ## store stock recruit data
@@ -133,7 +128,7 @@ for(i in 1:iter){  ## stochastic stock recruit component
 
 for(i in 1:iter){  ## stochastic economic multipliers component
   
-  ## subset net profit data, and setup discount year start = 2018
+  ## subset net profit data, and setup discount year start = 2020
   #tfishprof.dat<-tout.dat %>% select(Year,net_profit) %>% 
   #  filter(Year>=n_years[1]) %>% 
   #  mutate(t_init = ifelse(Year>=d_year,Year-d_year,0))
@@ -151,8 +146,8 @@ for(i in 1:iter){  ## stochastic economic multipliers component
       rnorm(1, mean = as.numeric(x[4]), sd = as.numeric(x[5]))})) 
     }
     tmult.dat<-tmult.dat %>%
-      filter(Sector=="Fisheries") %>%
-      select(-Sector,-Mult_Mean,-Mult_SD) %>%
+      filter(Sector %in% c("Fisheries","Processing")) %>%
+      select(-Mult_Mean,-Mult_SD) %>%
       mutate(Year = tyears[j],
              net_profit = tfishprof.dat$net_profit[j],
              t_init = tfishprof.dat$t_init[j]) 
@@ -161,13 +156,15 @@ for(i in 1:iter){  ## stochastic economic multipliers component
   
   ## estimate NPV with random generated multipler
   tout.dat2<-tout.dat2 %>% 
-    mutate(NPV = net_profit*t.Mult/(1+d_rate)^t_init)
+    mutate(NPV = net_profit*t.Mult/(1+d_rate)^t_init) %>%
+    filter(Year >= rel_Year) %>%
+    select(-t.Mult,-t_init,-net_profit)
   econ.out[[i]]<-tout.dat2
   
   rm(tout.dat2,tmult.dat)
 }
 
-for(i in 1:iter){
+for(i in 1:iter){  ## output of indicators over entire time series
   
   ## subset stock recruit data
   tdat<-stockrec.out[[i]] %>% 
@@ -185,7 +182,7 @@ for(i in 1:iter){
   ## econ data subset
   tecon<-econ.out[[i]]  %>% 
     group_by(Economic.Indicators,Year) %>%
-    summarize(NPV = sum(DollarValue))
+    summarize(NPV = sum(NPV))
   
   iter.ind[i,1]<-i
   iter.ind[i,2:6]<-temp.iter.dat
@@ -265,6 +262,8 @@ pdf("./Plots/IterConvAnalysis.pdf",width = 3.5, height = 2)
 p1f
 dev.off()
 
+rm(conv.dat,plot.dat,p.iter,p1f)
+
 ##
 ##
 ##
@@ -283,7 +282,7 @@ sum.dat<-data.frame()
 
 for(i in n_samp){
   tdat<-econ.out[[i]] %>% 
-    group_by(Economic.Indicators,Path) %>%
+    group_by(Economic.Indicators,Path,Sector) %>%
     summarize(NPV = sum(NPV, na.rm=T))
   tdat2<-tdat %>% group_by(Economic.Indicators) %>%
     summarize(NPV = sum(NPV, na.rm=T)) %>%
@@ -293,16 +292,17 @@ for(i in n_samp){
     sum.dat<-tdat
   } else {
     sum.dat<-sum.dat %>% 
-      left_join(tdat,by = c("Economic.Indicators","Path")) 
+      left_join(tdat,by = c("Economic.Indicators","Path","Sector")) 
   }
   rm(tdat,tdat2)
 }
 
-sumout.dat<-sum.dat[,c(-1,-2)]
+sumoutname.dat<-sum.dat[,c(1,2,3)]
+sumout.dat<-sum.dat[,c(-1,-2,-3)]
 
 sum.dat$NPV_mean<-apply(sumout.dat,1,mean)
 sum.dat$NPV_SE<-apply(sumout.dat,1, function(x){sd(x)/sqrt(opt.iter)})
-sum.dat<-sum.dat %>% select(Economic.Indicators,Path,NPV_mean,NPV_SE) %>%
+sum.dat<-sum.dat %>% select(Economic.Indicators,Path,Sector,NPV_mean,NPV_SE) %>%
   mutate(NPV_CI95 = NPV_SE*1.96)
 
 write.csv(sum.dat,"./Tables/CaptureFisheries_ModSimOutput.csv",row.names=F)
@@ -335,7 +335,7 @@ rm(tvar.dat)
 stockMean.dat$Ind<-factor(stockMean.dat$Ind,
                           levels = c("Wild return","Total return",
                                      "Total escapement","Harvest - area G"))
-stockMean.dat<-stockMean.dat %>% filter(Year >2013)
+stockMean.dat<-stockMean.dat %>% filter(Year >= rel_Year)
 
 ## plot stock recruit data
 p2.1<-ggplot(data=stockMean.dat)

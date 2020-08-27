@@ -10,7 +10,8 @@
 ###### STOCK RECRUIT MODEL FUNCTION #####
 stockRecr<-function(init.spawn,years,
                     sim.dat = model.dat,
-                    model=c("Ricker","BevHolt")){
+                    model=c("Ricker","BevHolt"),
+                    relYr = 2020){
   if(length(init.spawn)!=3){
     stop("require length init.spawn = 3")
   }
@@ -37,7 +38,7 @@ stockRecr<-function(init.spawn,years,
     beta_hi<--alpha_hi/xvar1_hi
     
     tescape<-tout.dat$total_escape[i]  ## total escapement
-    if(years[i]>=2020){
+    if(years[i]>=relYr+2){
       talpha<-alpha_hi
       tbeta<-beta_hi
     } else {
@@ -47,10 +48,10 @@ stockRecr<-function(init.spawn,years,
     if(model=="Ricker"){
       tdat<-data.frame(Year = years[i],alpha=talpha,beta=tbeta,
                        age3_ret = tescape*exp(talpha*(1-(tescape/tbeta)))) %>%
-        mutate(exp_rate = ifelse(years[i]>=2020,max((1-tar_esc/age3_ret),0.13),0.13),
+        mutate(exp_rate = ifelse(years[i]>=relYr+2,max((1-tar_esc/age3_ret),0.13),0.13),
                wild_escape = age3_ret*(1-exp_rate),
                hatchSmoltRel = sim.dat$HatchRelease[i],
-               hatch_surv = ifelse(years[i]>=2020,0.0675,0.015),
+               hatch_surv = ifelse(years[i]>=relYr+2,0.0675,0.015),
                hatch_return = hatchSmoltRel*hatch_surv,
                hatch_escape = hatch_return*(1-exp_rate),
                total_escape = wild_escape + hatch_escape)
@@ -58,10 +59,10 @@ stockRecr<-function(init.spawn,years,
     if(model=="BevHolt"){
       tdat<-data.frame(Year = years[i],alpha=talpha,beta=tbeta,
                        age3_ret = talpha*tescape/(tbeta+tescape)) %>%
-        mutate(exp_rate = ifelse(years[i]>=2020,(1-tar_esc/age3_ret),0.13),
+        mutate(exp_rate = ifelse(years[i]>=relYr+2,(1-tar_esc/age3_ret),0.13),
                wild_escape = age3_ret*(1-exp_rate),
                hatchSmoltRel = sim.dat$HatchRelease[i],
-               hatch_surv = ifelse(years[i]>=2020,0.0675,0.015),
+               hatch_surv = ifelse(years[i]>=relYr+2,0.0675,0.015),
                hatch_return = hatchSmoltRel*hatch_surv,
                hatch_escape = hatch_return*(1-exp_rate),
                total_escape = wild_escape + hatch_escape)
