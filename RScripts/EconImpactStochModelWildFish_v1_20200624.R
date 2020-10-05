@@ -33,7 +33,7 @@ mult.dat<-tempmult.dat %>% gather("Year","Multiplier",4:10) %>%
   group_by(Economic.Indicators,Path,Sector) %>%
   summarize(Mult_Mean = mean(Multiplier,na.rm=T),
             Mult_SD = sd(Multiplier,na.rm=T))
-write.csv(mult.dat,"./Tables/MultiplerTableMeanSD.csv",row.names = F)
+write.csv(mult.dat,"./Tables/MultiplerTableWildMeanSD.csv",row.names = F)
   
 ## hatchery release data
 model.dat<-read.csv("./Data/SimModelValues.csv",header=T,strip.white=T,stringsAsFactors=F)
@@ -59,7 +59,7 @@ n_years<-2014:2050
 
 
 ## model value parameters
-d_rate<-0.08  ## discount rate: Canada = 8%
+d_rate<-0.058  ## discount rate: Canada = 8%, less 2.2% inflation
 d_year<-2020  ## discount year start; Bendriem start = 2018; we start at 2020
 
 rel_Year<-2020  ## relative year to start harvesting when survival increases
@@ -209,13 +209,14 @@ conv.dat<-data.frame()
 
 for(i in 1:length(c.iter)){
   tsample.dat<-iter.ind %>% sample_n(c.iter[i],replace=T) %>%
+    mutate(totalSum = netpresentvalue+Employment+GDP+LabourIncome+Output) %>%
     summarize(iterations = c.iter[i],
-              netprof_mean = mean(netpresentvalue,na.rm=T),
-              netprof_SE = sd(netpresentvalue,na.rm=T)/sqrt(c.iter[i]),
-              netprof_50 = quantile(netpresentvalue,0.5,na.rm=T),
-              netprof_70 = quantile(netpresentvalue,0.7,na.rm=T),
-              netprof_90 = quantile(netpresentvalue,0.9,na.rm=T),
-              netprof_95 = quantile(netpresentvalue,0.95,na.rm=T),
+              totalSum_mean = mean(totalSum,na.rm=T),
+              totalSum_SE = sd(totalSum,na.rm=T)/sqrt(c.iter[i]),
+              totalSum_50 = quantile(totalSum,0.5,na.rm=T),
+              totalSum_70 = quantile(totalSum,0.7,na.rm=T),
+              totalSum_90 = quantile(totalSum,0.9,na.rm=T),
+              totalSum_95 = quantile(totalSum,0.95,na.rm=T),
               annnetprof_mean = mean(netprofit_annual,na.rm=T),
               annnetprof_SE = sd(netprofit_annual,na.rm=T)/sqrt(c.iter[i]))
   conv.dat<-conv.dat %>% bind_rows(tsample.dat)
@@ -224,26 +225,26 @@ for(i in 1:length(c.iter)){
 
 
 plot.dat<-conv.dat %>%
-  mutate(permean = abs(100*(netprof_mean-netprof_mean[length(c.iter)])/
-                         netprof_mean[length(c.iter)]),
+  mutate(permean = abs(100*(totalSum_mean-totalSum_mean[length(c.iter)])/
+                         totalSum_mean[length(c.iter)]),
          per_ann = abs(100*(annnetprof_mean-annnetprof_mean[length(c.iter)])/
                          annnetprof_mean[length(c.iter)]),
-         per50 = abs(100*(netprof_50-netprof_50[length(c.iter)])/
-                       netprof_50[length(c.iter)]),
-         per70 = abs(100*(netprof_70-netprof_70[length(c.iter)])/
-                       netprof_70[length(c.iter)]),
-         per90 = abs(100*(netprof_90-netprof_90[length(c.iter)])/
-                       netprof_90[length(c.iter)]),
-         per95 = abs(100*(netprof_95-netprof_95[length(c.iter)])/
-                       netprof_95[length(c.iter)])) %>%
+         per50 = abs(100*(totalSum_50-totalSum_50[length(c.iter)])/
+                       totalSum_50[length(c.iter)]),
+         per70 = abs(100*(totalSum_70-totalSum_70[length(c.iter)])/
+                       totalSum_70[length(c.iter)]),
+         per90 = abs(100*(totalSum_90-totalSum_90[length(c.iter)])/
+                       totalSum_90[length(c.iter)]),
+         per95 = abs(100*(totalSum_95-totalSum_95[length(c.iter)])/
+                       totalSum_95[length(c.iter)]))  %>%
   gather("percentile", "value",12:15)
          
 
 
 
 p.iter<-ggplot(plot.dat)
-p.iter + geom_line(aes(x = iterations, y=netprof_mean))
-p.iter + geom_line(aes(x = iterations, y=netprof_SE))
+p.iter + geom_line(aes(x = iterations, y=totalSum_mean))
+p.iter + geom_line(aes(x = iterations, y=totalSum_SE))
 p.iter + geom_line(aes(x = iterations, y=annnetprof_mean))
 p.iter + geom_line(aes(x = iterations, y=annnetprof_SE))
 
@@ -258,7 +259,7 @@ p1f<-p.iter + theme(axis.title = element_text(size = 8),
        y = "Absolute % difference from 10k\niteration results") +
   scale_colour_discrete(name = "Percentile", labels = c("50th","70th","90th","95th"))
 
-pdf("./Plots/IterConvAnalysis.pdf",width = 3.5, height = 2)
+pdf("./Plots/WildIterConvAnalysis.pdf",width = 3.5, height = 2)
 p1f
 dev.off()
 
@@ -352,7 +353,7 @@ p2.1f<-p2.1 + theme(axis.title = element_text(size = 8),
   labs(x="Year",y="# fish (thousand)") + 
   scale_colour_discrete(guide=F)
 
-pdf("./Plots/StockRec_ModSimOutput.pdf",width=3.5,height=3)
+pdf("./Plots/WildStockRec_ModSimOutput.pdf",width=3.5,height=3)
 p2.1f
 dev.off()
 
@@ -401,7 +402,7 @@ p3.1f<-p3.1 + theme(axis.title = element_text(size = 8),
 
 
 
-pdf("./Plots/EconIndicator_ModSimOutput.pdf",width=3.5,height=3)
+pdf("./Plots/WildEconIndicator_ModSimOutput.pdf",width=3.5,height=3)
 p3.1f
 dev.off()
 
