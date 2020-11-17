@@ -8,7 +8,8 @@
 #
 
 ###### STOCK RECRUIT MODEL FUNCTION #####
-stockRecr<-function(init.spawn,years,
+stockRecr<-function(init.spawn,init.totescape,
+                    years,
                     sim.dat = model.dat,
                     model=c("Ricker","BevHolt"),
                     relYr = 2020){
@@ -16,10 +17,10 @@ stockRecr<-function(init.spawn,years,
     stop("require length init.spawn = 3")
   }
   init.years<-c((min(years)-3):(min(years)-1))
-  tout.dat<-data.frame(Year = 2011:2013, alpha=0, beta=0, 
+  tout.dat<-data.frame(Year = 2015:2017, alpha=0, beta=0, 
                        age3_ret = 0, exp_rate = 0, wild_escape = 0,
                        hatchSmoltRel = 0, hatch_surv = 0, hatch_return = 0, hatch_escape = 0, 
-                       total_escape = Spawn2011to13)
+                       total_escape = init.totescape)
   
   for(i in 1:length(years)){
     
@@ -38,7 +39,7 @@ stockRecr<-function(init.spawn,years,
     beta_hi<--alpha_hi/xvar1_hi
     
     tescape<-tout.dat$total_escape[i]  ## total escapement
-    if(years[i]>=relYr+2){
+    if(years[i]>=relYr){
       talpha<-alpha_hi
       tbeta<-beta_hi
     } else {
@@ -48,10 +49,10 @@ stockRecr<-function(init.spawn,years,
     if(model=="Ricker"){
       tdat<-data.frame(Year = years[i],alpha=talpha,beta=tbeta,
                        age3_ret = tescape*exp(talpha*(1-(tescape/tbeta)))) %>%
-        mutate(exp_rate = ifelse(years[i]>=relYr+2,max((1-tar_esc/age3_ret),0.13),0.13),
+        mutate(exp_rate = ifelse(years[i]>=relYr,max((1-tar_esc/age3_ret),0.13),0.13),
                wild_escape = age3_ret*(1-exp_rate),
                hatchSmoltRel = sim.dat$HatchRelease[i],
-               hatch_surv = ifelse(years[i]>=relYr+2,0.0675,0.015),
+               hatch_surv = ifelse(years[i]>=relYr,0.0675,0.015),
                hatch_return = hatchSmoltRel*hatch_surv,
                hatch_escape = hatch_return*(1-exp_rate),
                total_escape = wild_escape + hatch_escape)
@@ -59,10 +60,10 @@ stockRecr<-function(init.spawn,years,
     if(model=="BevHolt"){
       tdat<-data.frame(Year = years[i],alpha=talpha,beta=tbeta,
                        age3_ret = talpha*tescape/(tbeta+tescape)) %>%
-        mutate(exp_rate = ifelse(years[i]>=relYr+2,(1-tar_esc/age3_ret),0.13),
+        mutate(exp_rate = ifelse(years[i]>=relYr,(1-tar_esc/age3_ret),0.13),
                wild_escape = age3_ret*(1-exp_rate),
                hatchSmoltRel = sim.dat$HatchRelease[i],
-               hatch_surv = ifelse(years[i]>=relYr+2,0.0675,0.015),
+               hatch_surv = ifelse(years[i]>=relYr,0.0675,0.015),
                hatch_return = hatchSmoltRel*hatch_surv,
                hatch_escape = hatch_return*(1-exp_rate),
                total_escape = wild_escape + hatch_escape)

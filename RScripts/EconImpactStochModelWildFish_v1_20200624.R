@@ -41,6 +41,8 @@ model.dat<-read.csv("./Data/SimModelValues.csv",header=T,strip.white=T,stringsAs
 ## stock recruit parameter data 
 storec.dat<-read.csv("./Data/StockRecruitValues.csv",header=T,strip.white=T,stringsAsFactors=F)
 
+## age 3 returns data: 2014-2017
+age3.dat<-read.csv("./Data/Bendriem_Age3Returns_202011.csv",header=T,strip.white=T,stringsAsFactors=F)
 
 
 ##### END READ DATA ##### 
@@ -55,7 +57,7 @@ storec.dat<-read.csv("./Data/StockRecruitValues.csv",header=T,strip.white=T,stri
 set.seed(1)  ## set random seed to start at the same point (for reproducability of stochastic model)
 iter<-10000  ## number of iterations - do 10000 then sample from 10000
 
-n_years<-2014:2050
+n_years<-2018:2050
 
 
 ## model value parameters
@@ -67,7 +69,7 @@ mult.cate<-unique(mult.dat$Economic.Indicators)  ## multiplier categories
 mean_bodysize<-3.46  ## mean body size of coho kg
 exv_price<-3.02  ## ex vessel price $/kg
 costfishing_weekly<-3391.2  ## fishing cost $/week
-Spawn2011to13<-c(25487,54832,58641)  ## historical spawners data: 2011-2013
+Spawn2014to17<-age3.dat$Age3Returns
 tar_esc<-40000  ## target escapement
 
 ## stock recruit parameters  CHECK TABLE storec.dat TO ENSURE CORRECT VALUES
@@ -105,18 +107,20 @@ for(i in 1:iter){  ## stochastic stock recruit component
   
   ## set stochastic stock recruit parameter
   ## run stock recruit simulation
-  tout.dat<-stockRecr(init.spawn = Spawn2011to13,years = n_years,
+  tout.dat<-stockRecr(init.spawn = Spawn2014to17[2:4],
+                      init.totescape = age3.dat$TotalEscapement_WildHatch[2:4],
+                      years = n_years,
                       sim.dat = model.dat,
                       model="Ricker",
                       relYr = rel_Year) %>% 
     mutate(total_return = age3_ret + hatch_return,
-           harvest = ifelse(Year>=rel_Year+2,exp_rate*total_return,0),
+           harvest = ifelse(Year>=rel_Year,exp_rate*total_return,0),
            harvest_areaG = harvest*0.9) %>%
     left_join((model.dat %>% select(Year,Catchability)),by = "Year") %>%
     mutate(effort = harvest_areaG/(Catchability*age3_ret)) %>%
     replace_na(list(Catchability=0,effort=0)) %>%
     mutate(LV = harvest_areaG * exv_price * mean_bodysize,
-           fishingcost_season = ifelse(Year>=rel_Year+2,effort*costfishing_weekly+120000,0),
+           fishingcost_season = ifelse(Year>=rel_Year,effort*costfishing_weekly+120000,0),
            net_revenue = LV - fishingcost_season,
            implement_cost = ifelse(Year>=rel_Year,9200,0),
            net_profit = net_revenue-implement_cost) 
@@ -176,7 +180,7 @@ for(i in 1:iter){  ## output of indicators over entire time series
               total_escape = sum(total_escape,na.rm=T),
               total_return = sum(total_return,na.rm=T),
               wild_return = sum(age3_ret,na.rm=T)) %>%
-    bind_cols(tdat %>% filter(Year>=2020) %>% 
+    bind_cols(tdat %>% filter(Year>=rel_Year) %>% 
                 summarize(harvest_annual = mean(harvest_areaG,na.rm=T)))
   
   ## econ data subset
@@ -254,7 +258,7 @@ p1f<-p.iter + theme(axis.title = element_text(size = 8),
                     legend.title = element_text(size=7)) + 
   geom_line(aes(x = iterations, y = value, col = percentile),lwd=0.25) + 
   geom_smooth(aes(x = iterations, y = value, col = percentile),method = "loess",lwd=0.6) +
-  geom_vline(xintercept = 3000, lty = 2, lwd= 0.2) +
+  geom_vline(xintercept = 2500, lty = 2, lwd= 0.2) +
   labs(x = "Iterations",
        y = "Absolute % difference from 10k\niteration results") +
   scale_colour_discrete(name = "Percentile", labels = c("50th","70th","90th","95th"))
@@ -276,7 +280,7 @@ rm(conv.dat,plot.dat,p.iter,p1f)
 ##
 
 set.seed(100)
-opt.iter<-3000
+opt.iter<-2500
 
 n_samp<-sample(c(1:iter),opt.iter,replace = F)
 sum.dat<-data.frame()
