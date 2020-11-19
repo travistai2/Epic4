@@ -180,7 +180,7 @@ p1f<-p.iter + theme(axis.title = element_text(size = 8),
                     legend.title = element_text(size=7)) + 
   geom_line(aes(x = iterations, y = value, col = percentile),lwd=0.25) + 
   geom_smooth(aes(x = iterations, y = value, col = percentile),method = "loess",lwd=0.6) +
-  geom_vline(xintercept = 2000, lty = 2, lwd= 0.2) +
+  geom_vline(xintercept = 2500, lty = 2, lwd= 0.2) +
   labs(x = "Iterations",
        y = "Absolute % difference from 10k\niteration results") +
   scale_colour_discrete(name = "Percentile", labels = c("50th","70th","90th","95th"))
@@ -204,7 +204,7 @@ rm(conv.dat,plot.dat,p.iter,p1f)
 ##
 
 set.seed(100)
-opt.iter<-2000
+opt.iter<-2500
 
 n_samp<-sample(c(1:iter),opt.iter,replace = F)
 sum.dat<-data.frame()
@@ -212,18 +212,25 @@ sum.dat<-data.frame()
 for(i in n_samp){
   tdat<-econ.out[[i]] %>% 
     group_by(Economic.Indicators,Path,Sector) %>%
-    summarize(NPV = sum(NPV, na.rm=T))
+    summarize(NPV = sum(NPV, na.rm=T)) %>% 
+    mutate(NPV = replace(NPV,Economic.Indicators=="Employment",NPV*10^-6))  ## employment multiplier = FTE per $1,000,000
   tdat2<-tdat %>% group_by(Economic.Indicators) %>%
     summarize(NPV = sum(NPV, na.rm=T)) %>%
-    mutate(Path = "Total")
-  tdat<-tdat %>% bind_rows(tdat2)
+    mutate(Path = "Total",
+           Sector = "Total")
+  tdat3<-tdat %>% filter(Path=="Indirect") %>%
+    group_by(Economic.Indicators) %>%
+    summarize(NPV = sum(NPV, na.rm=T)) %>%
+    mutate(Path = "Indirect",
+           Sector = "Total")
+  tdat<-tdat %>% bind_rows(tdat2,tdat3)
   if(i==n_samp[1]){
     sum.dat<-tdat
   } else {
     sum.dat<-sum.dat %>% 
       left_join(tdat,by = c("Economic.Indicators","Path","Sector")) 
   }
-  rm(tdat,tdat2)
+  rm(tdat,tdat2,tdat3)
 }
 
 sumoutname.dat<-sum.dat[,c(1,2,3)]
@@ -246,7 +253,8 @@ econMean.dat<-data.frame()
 for(i in n_samp){
   tdat<-econ.out[[i]] %>%
     group_by(Economic.Indicators,Year) %>%
-    summarize(NPV = sum(NPV,na.rm=T))
+    summarize(NPV = sum(NPV,na.rm=T)) %>% 
+    mutate(NPV = replace(NPV,Economic.Indicators=="Employment",NPV*10^-3))  ## employment multiplier = FTE per $1,000,000 (divided by 1000 below for the graph)
   if(i==n_samp[[1]]){
     econMean.dat<-tdat
   } else {
@@ -277,7 +285,7 @@ p3.1f<-p3.1 + theme(axis.title = element_text(size = 8),
   geom_ribbon(aes(x=Year, ymin=(NPV_mean-(1.96*NPV_SE))/1000, 
                   ymax=(NPV_mean+(1.96*NPV_SE))/1000),
               fill="grey50",alpha=0.5) +
-  labs(x="Year",y="Net present value (1000 USD)") +
+  labs(x="Year",y="Net present value (1000 CAD) &\n(full time employment per million CAD)") +
   facet_wrap(econMean.dat$Economic.Indicators,nrow=2,scales="free") +
   scale_colour_discrete(guide=F)
 

@@ -288,18 +288,25 @@ sum.dat<-data.frame()
 for(i in n_samp){
   tdat<-econ.out[[i]] %>% 
     group_by(Economic.Indicators,Path,Sector) %>%
-    summarize(NPV = sum(NPV, na.rm=T))
+    summarize(NPV = sum(NPV, na.rm=T)) %>%
+    mutate(NPV = replace(NPV,Economic.Indicators=="Employment",NPV*10^-6))  ## employment multiplier = FTE per $1,000,000
   tdat2<-tdat %>% group_by(Economic.Indicators) %>%
     summarize(NPV = sum(NPV, na.rm=T)) %>%
-    mutate(Path = "Total")
-  tdat<-tdat %>% bind_rows(tdat2)
+    mutate(Path = "Total",
+           Sector = "Total")
+  tdat3<-tdat %>% filter(Path=="Indirect") %>%
+    group_by(Economic.Indicators) %>%
+    summarize(NPV = sum(NPV, na.rm=T)) %>%
+    mutate(Path = "Indirect",
+           Sector = "Total")
+  tdat<-tdat %>% bind_rows(tdat2,tdat3)
   if(i==n_samp[1]){
     sum.dat<-tdat
   } else {
     sum.dat<-sum.dat %>% 
       left_join(tdat,by = c("Economic.Indicators","Path","Sector")) 
   }
-  rm(tdat,tdat2)
+  rm(tdat,tdat2,tdat3)
 }
 
 sumoutname.dat<-sum.dat[,c(1,2,3)]
@@ -329,7 +336,7 @@ for(i in 1:length(n_samp)){
 
 storec.categ<-c("Wild return","Total return","Total escapement","Harvest - area G")
 for(i in 1:4){
-  tdat<-data.frame(Year = c(2011:2013,n_years), 
+  tdat<-data.frame(Year = c(2011:2013,n_years), ## fix here?
                    Ind = storec.categ[i], 
                    y_FishMean = apply(tvar.dat[,i,],1,mean),
                    y_FishSE = (apply(tvar.dat[,i,],1,sd)/sqrt(length(n_samp))))
@@ -368,7 +375,8 @@ econMean.dat<-data.frame()
 for(i in n_samp){
   tdat<-econ.out[[i]] %>%
     group_by(Economic.Indicators,Year) %>%
-    summarize(NPV = sum(NPV,na.rm=T))
+    summarize(NPV = sum(NPV,na.rm=T)) %>% 
+    mutate(NPV = replace(NPV,Economic.Indicators=="Employment",NPV*10^-3))  ## employment multiplier = FTE per $1,000,000 (divided by 1000 below for the graph)
   if(i==n_samp[[1]]){
     econMean.dat<-tdat
   } else {
@@ -399,11 +407,9 @@ p3.1f<-p3.1 + theme(axis.title = element_text(size = 8),
   geom_ribbon(aes(x=Year, ymin=(NPV_mean-(1.96*NPV_SE))/1000, 
                   ymax=(NPV_mean+(1.96*NPV_SE))/1000),
               fill="grey50",alpha=0.5) +
-  labs(x="Year",y="Net present value (1000 USD)") +
+  labs(x="Year",y="Net present value (1000 CAD) &\n(full time employment per million CAD)") +
   facet_wrap(econMean.dat$Economic.Indicators,nrow=2,scales="free") +
   scale_colour_discrete(guide=F)
-
-
 
 
 pdf("./Plots/WildEconIndicator_ModSimOutput.pdf",width=3.5,height=3)
